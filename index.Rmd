@@ -19,72 +19,96 @@ tidy=TRUE, tidy.opts=list(width.cutoff=60), R.options=list(max.print=100))
 
 ## Data Wrangling, Exploration, Visualization
 
-### Name and EID here
+### Vanessa Zavala, vz988
 
 #### Introduction 
 
 Paragraph or two introducing your datasets and variables, why they are interesting to you, etc.
 
 ```{R}
-# read your datasets in here, e.g., with read_csv()
-
+library(tidyverse)
+TeenPregnancy <- read_csv("TeenPregnancy.csv")
+CrimeRates <- read_csv("af_crime93.csv")
 ```
+  The two data sets that are used in this project were acquired through the 'Stat2Data' package in R. The teen pregnancy data set has 50 observations, one for each state, with 5 different variables. However, one of them is redundant because it numbers the states, although that is already done by R. The other 4 variables include the ID variable that will be used to join the two data sets, which are the state abbreviations, 'CivilWar' which indicates how the state participated in the civil war, 'Church' which is the number of girls who went to church that week, and 'Teen' which indicates the number of teens that were pregnant per 1000 girls in that state. These values were obtained by the Guttmacher Institute on May 4, 2014 by Tanya Lewis. 
+  The second data set shows the statewide crime data for all 50 states and the District of Columbia; the data set contains 51 observations of 9 variables. The first variable is just numbering the states while the second is the ID variable, the state abbreviations. 'Violent' is the violent crime rate (per 100,000 people in the population), 'murder' is the murder rate per 100,000 people, 'poverty' is the percent of the population with income below the poverty level, 'single' is the rate of households that are led by single parents, 'metro' is the percent of population that live in metropolitan areas, 'white' is the percentage of white individuals in the state, and 'highschool' is the percentage of the state that graduated from high school. 
+  These two data sets were chosen because they all have interesting variables that have a possible strong correlation with one another. With states that have a higher crime rate and lower high school graduation percentage, the rate for teen pregnancy might be higher. It would also be interesting to see how the participation in the civil war might affect the teen pregnancy rate or crime rate of that specific state. 
 
 #### Tidying: Reshaping
 
 If your datasets are tidy already, demonstrate that you can reshape data with pivot wider/longer here (e.g., untidy and then retidy). Alternatively, it may be easier to wait until the wrangling section so you can reshape your summary statistics. Note here if you are going to do this.
 
-```{R}
-# your tidying code (if applicable; can also wait until wrangling section)
-```
+```{R echo=TRUE}
+TeenPregnancy %>% pivot_longer(4:5, names_to="Church/Teen", values_to="Rates") %>% pivot_wider( names_from="Church/Teen", values_from="Rates") %>% select(-1) ->TeenPregnancy
 
+CrimeRates %>% pivot_longer(3:9, names_to="Data", values_to="Values") %>% pivot_wider(names_from="Data", values_from="Values") %>% select(-1) ->CrimeRates
+```
+Because both data sets were both tidy, I made sure to pivot both of them longer followed by pivoting them wider to show that I can use the functions. I also removed the first column because it was redundant since R numbers the rows as well. 
     
 #### Joining/Merging
 
-```{R}
-# your joining code
-
-# your joining code
+```{R echo=TRUE}
+nrow(TeenPregnancy)
+ncol(TeenPregnancy)
+nrow(CrimeRates)
+ncol(CrimeRates)
+CrimeRates %>% left_join(TeenPregnancy, by= c("state" = "State"))
+CrimeRates%>% anti_join(TeenPregnancy, by = c("state"="State"))
+CrimeRates %>% semi_join(TeenPregnancy, by=c("state"="State"))
+TeenPregnancy%>% left_join(CrimeRates, by = c("State"="state")) ->MergedData
 ```
-
-Discussions of joining here. Feel encouraged to break up into more than once code chunk and discuss each in turn.
+A left join dplyr function was used to merge the data because the 'Teen Pregnancy' data set had all the observations the 'CrimeRates' data set had except one. The observations that mattered most were ones that represented each state, and because the District of Columbia is not a state, that observation was lost. However, with this loss of data, we cannot assume that any of the data within this merged data set can be applied to the District of Columbia because it is not a state nor is it located in one. After the join was done, the new data set, now called 'MergedData', has 50 observations of 11 variables. This is similar in number to the observations in the 'TeenPregnancy' data set but one less observation than 'CrimeRates'. Before the join, the 'TeenPregnancy' data set had a total of 50 observations of 4 variables, with 3 of those being unique to this data set ('CivilWar', 'Church', and 'Teen'). The 'CrimeRates' data set had a total of 51 observations of 8 variables, with 7 of them being unique to this data set ('violent', 'murder', 'poverty', 'single', 'white', 'metro', and 'highschool'). The only ID variable that was found in both data sets were the 50 states of the United States. 
 
 ####  Wrangling
 
 ```{R}
-# your wrangling code
+MergedData %>% group_by(CivilWar)%>% summarize(Mean.Murder.Rate=mean(murder)) %>% arrange(desc(Mean.Murder.Rate)) %>% mutate(CivilWar = str_replace(CivilWar, "Confederate", "Confederate"))%>% mutate(CivilWar = str_replace(CivilWar, "Other", "Other"))%>% mutate(CivilWar = str_replace(CivilWar, "Union", "Union"))%>% mutate(CivilWar = str_replace(CivilWar, "Border", "Border"))
 
-# your wrangling code
+MergedData %>% mutate(CivilWar = str_replace(CivilWar, "[C]", "Confederate"))%>% mutate(CivilWar = str_replace(CivilWar, "[O]", "Other"))%>% mutate(CivilWar = str_replace(CivilWar, "[U]", "Union"))%>% mutate(CivilWar = str_replace(CivilWar, "[B]", "Border"))->MergedData
 
-# your wrangling code
+MergedData %>% filter(poverty>10 & highschool<70)%>% summarize(Mean_TeenPreg=mean(Teen), StDev=sd(Teen), Max= max(Teen), Min= min(Teen))
+
+MergedData %>% filter(poverty<15 & highschool>70) %>% summarize(Mean_TeenPreg=mean(Teen), StDev=sd(Teen), Max= max(Teen), Min= min(Teen))
+
+MergedData %>% summarize(Quantiles = quantile(Teen, probs= seq(0, 1, 1/4)))
+MergedData<-MergedData %>% mutate(TeenPregLevel = ifelse(Teen>63.75, "high", 
+                                             ifelse(Teen<=63.75 & 47<=Teen, "med", "low")))
+head(MergedData) 
+MergedData%>% group_by(CivilWar, TeenPregLevel)%>% summarize(Mean.Poverty=mean(poverty))%>% arrange(desc(Mean.Poverty))
+
+MergedData%>% group_by(CivilWar)%>% summarize(count=n())%>% arrange(count)
+MergedData %>% group_by(TeenPregLevel)%>% summarize(count=n())%>% arrange(count)
+
+library(knitr)
+ Range<- function(x)max(x)-min(x)
+MergedData %>% group_by(TeenPregLevel)%>% select(-1,-2)%>%summarize_all(c(Mean=mean, Max=max, Min=min, Range=Range))%>% pivot_longer(2:37) %>% separate(name, into=c("Variables", "type")) %>% pivot_wider(names_from = "type", values_from="value")%>%kable(digits = 3, align = 'clcccc', col.names=str_to_title(names(.)))
+
 ```
-
-Your discussion of wrangling section here. Feel encouraged to break up into more than once code chunk and discuss each in turn.
+To find the summary statistics of all the variables within the merged data set, I first grouped by the teen pregnancy level then got rid of the first two columns which consisted of the state names and civil war participation. Then I used summarize_all to get the summary statistics needed, however, by doing this, it made the data set extremely untidy. To fix this problem, I used pivot_longer and pivot_wider to tidy up the data set which resulted in the last table presented above. An interesting finding that I was able to obtain using the first line of code above was that states that were grouped by the civil war participation of 'Confederate' had a larger average of murder rate as compared to the states that fell within the groups of border, union, or other. This was really interesting to look at because it was also found that states that were grouped as confederate also tended to have a higher average of teen pregnancy which leads to think about what could be causing these states to have such drastic differences compared to other states. 
 
 
 #### Visualizing
 
 ```{R}
-# your plot 1
+ggplot(MergedData, aes(Teen, poverty))+geom_point(aes(color=TeenPregLevel))+geom_smooth(method="lm", se=F)+theme_minimal()+ ggtitle("Teen Pregnancy and Poverty Percentage Correlation") + ylab("Poverty") + xlab("Teen Pregnancy")
 ```
 
-Your discussion of plot 1
+In the plot above, teen pregnancy and poverty were plotted within a scatter plot to show the correlation between the two. From the plot, it is evident that there is a positive correlation between teen pregnancy and poverty. As you can see, as teen pregnancy increases, the percentage of those with incomes below the poverty level increases as well. This could mean that in areas with higher teen pregnancy rates, there could be less funding towards sex education programs within the community. 
 
 ```{R}
-# your plot 2
+ggplot(MergedData, aes(x=Teen, fill=CivilWar)) + geom_density(alpha=.75) +
+theme(legend.position=c(.9,.8))+ geom_rug() + ggtitle("Teen Pregnancy and Civil War Participation") + ylab("Density") + xlab("Teen Pregnancy")+xlim(0,100)
 ```
 
-Your discussion of plot 2
+In this plot, a density plot was used to depict the relationship between teen pregnancy and civil war participation. As shown in the graph, there is a slightly higher amount of teen pregnancy in states that were on the confederate side as compared to states that were considered as other. The states known as other are states that were likely annexed or founded after the events of the Civil War. States that participated in the civil war as confederates have a higher rate of teen pregnancy, which could be due to the conservative views that have continued in the South or just a lack of funding for proper sex education. 
 
 ```{R}
-# your plot 3
+ggplot(MergedData, aes(highschool, violent)) +geom_point(aes(color=TeenPregLevel))+geom_smooth(method="lm", se=F)+theme_minimal()+ ggtitle("Percentage of State High School Graduates and the Rate of Violent Crimes") + ylab("Violence Rate") + xlab("Percentage of High School Graduates")
 ```
 
-Your discussion of plot 3
+In the scatter plot above, the percentage of high school graduates and violence rate were plotted against each other to show whether the two were correlated or not. Based on the graph, it is evident that there is a negative correlation between the percentage of high school graduates and violence rates within a state. As the percentage of high school graduates increases, the violence rate decreases. The fill that was done shows how teen pregnancy plays into effect. A majority of the higher teen pregnancy rates are found in states that have a low percentage of high school graduates and a high violence rate. This graph just further proves that teen pregnancy could be a result to less education opportunities available, poverty, and violence.  
 
-#### Concluding Remarks
 
-If any!
 
 
 
